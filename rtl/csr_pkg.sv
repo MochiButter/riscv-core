@@ -15,7 +15,11 @@ package csr_pkg;
     CSRmtval         = 12'h343,
     CSRmip           = 12'h344,
     CSRmcycle        = 12'hB00,
-    CSRminstret      = 12'hB02
+    CSRminstret      = 12'hB02,
+    // Unprivilledged read-only
+    CSRcycle         = 12'hc00,
+    CSRtime          = 12'hc01,
+    CSRinstret       = 12'hc02
   } csr_addrs_e;
 
   typedef enum logic [Xlen - 1:0] {
@@ -81,4 +85,6 @@ package csr_pkg;
     logic wpri5;
   } csr_mstatus_t;
 
+  localparam MipMTimer = (1 << 7);
+  localparam MipMSoft  = (1 << 3);
 endpackage

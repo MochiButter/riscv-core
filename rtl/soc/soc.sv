@@ -20,6 +20,9 @@ module soc
   logic [MaskBits - 1:0] bus_wmask;
   logic bus_ready, bus_valid, bus_rvalid;
 
+  logic [63:0] mtime;
+  logic msip, mtip;
+
   `AXIL_LOGIC(core)
   `AXIL_LOGIC(ram)
   `AXIL_LOGIC(rom)
@@ -73,7 +76,10 @@ module soc
     .datamem_wdata_o (d_wdata),
     .datamem_wmask_o (d_wmask),
     .datamem_rdata_i (d_rdata),
-    .datamem_rvalid_i(d_rvalid)
+    .datamem_rvalid_i(d_rvalid),
+    .msip_i          (msip),
+    .mtip_i          (mtip),
+    .mtime_i         (mtime)
 `ifdef RISCV_FORMAL
     ,
     .rvfi_valid(rvfi_valid),
@@ -191,8 +197,6 @@ module soc
     `S_AXIL_CONN(rom)
   );
 
-  logic [63:0] mtime;
-  logic msip, mtip;
   axil_aclint #(
     .BusWidth (64)
   ) u_axil_aclint (

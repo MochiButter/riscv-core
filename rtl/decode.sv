@@ -238,9 +238,9 @@ module decode
                 csr_op_o = OpEbreak;
                 ex_ebreak = 1'b1;
               end
+              12'h105: csr_op_o = OpWfi;
               12'h302: csr_op_o = OpMret;
-              12'h002, 12'h102, 12'h202, 12'h7b2,
-                12'h104, 12'h105: illegal_inst = 1'b1; // unimplemented
+              // 12'h002, 12'h102, 12'h202, 12'h7b2, 12'h104: ;
               default: illegal_inst = 1'b1;
             endcase
           end

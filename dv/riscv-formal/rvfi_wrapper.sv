@@ -47,5 +47,9 @@ module rvfi_wrapper
   (* keep *) `rvformal_rand_reg [Xlen - 1:0] datamem_rdata_i;
   (* keep *) `rvformal_rand_reg              datamem_rvalid_i;
 
+  (* keep *) `rvformal_rand_reg              msip_i;
+  (* keep *) `rvformal_rand_reg              mtip_i;
+  (* keep *) `rvformal_rand_reg [Xlen - 1:0] mtime_i;
+
   core c (.*);
 endmodule

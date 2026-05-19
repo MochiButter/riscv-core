@@ -16,6 +16,7 @@ ecall
 ebreak
 nop
 nop
+.align 4
 _1:
 csrrs x4, mcause, x0
 csrrs x5, mepc, x0

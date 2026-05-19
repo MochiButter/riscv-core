@@ -22,6 +22,10 @@ module core
   ,input  logic [Xlen - 1:0]       datamem_rdata_i
   ,input  logic                    datamem_rvalid_i
 
+  ,input  logic              msip_i
+  ,input  logic              mtip_i
+  ,input  logic [Xlen - 1:0] mtime_i
+
 `ifdef RISCV_FORMAL
   ,output logic [Nret        - 1 : 0] rvfi_valid
   ,output logic [Nret *   64 - 1 : 0] rvfi_order
@@ -233,10 +237,19 @@ module core
 
   /* ===== [EX -> MEM] ===== */
 
-  logic mems_busy, mems_lsu_misalign;
+  logic mems_busy, mems_csr_busy, mems_lsu_misalign;
   logic [Xlen - 1:0] mems_load_data;
 
-  /* Frowarding control */
+  logic mems_is_new_q;
+  always_ff @(posedge clk_i) begin
+    if (!rst_ni) begin
+      mems_is_new_q <= 1'b0;
+    end else begin
+      mems_is_new_q <= (exmem_rd_valid) ? exmem_rd_ready : 1'b1;
+    end
+  end
+
+  /* Forwarding control */
   logic [4:0] mems_rs1_addr, mems_rs2_addr;
   assign mems_rs1_addr = exmem_q.rs1_addr;
   assign mems_rs2_addr = exmem_q.rs2_addr;
@@ -333,16 +346,21 @@ module core
     .rs1_data_i    (mems_csr_rs1_data),
     .csr_addr_i    (exmem_q.csr_addr),
     .rd_data_o     (memwb_d.csr_rd_data),
+    .msip_i        (msip_i),
+    .mtip_i        (mtip_i),
+    .mtime_i       (mtime_i),
+    .can_intr_i    (mems_is_new_q),
     .pc_i          (exmem_q.inst_pc),
     .raise_trap_o  (mems_csr_raise_trap),
-    .trap_vector_o (mems_csr_trap_vector)
+    .trap_vector_o (mems_csr_trap_vector),
+    .wfi_busy_o    (mems_csr_busy)
   );
 
   mem_lsu #() lsu_inst (
     .clk_i        (clk_i),
     .rst_ni       (rst_ni),
 
-    .valid_inst_i (exmem_rd_valid && !mems_lsu_misalign),
+    .valid_inst_i (exmem_rd_valid && !mems_csr_raise_trap),
     .mem_type_i   (exmem_q.mem_type),
     .addr_i       (exmem_q.alu_res),
     .wdata_i      (mems_rs2_fwd),
@@ -369,8 +387,8 @@ module core
     endcase
   end
 
-  assign exmem_rd_ready = !mems_busy;
-  assign memwb_wr_valid = exmem_rd_valid && !mems_busy;
+  assign exmem_rd_ready = !(mems_busy || mems_csr_busy);
+  assign memwb_wr_valid = exmem_rd_valid && !(mems_busy || mems_csr_busy);
 
   /* To Wb */
   assign memwb_d.reg_wb_src = exmem_q.reg_wb_src;

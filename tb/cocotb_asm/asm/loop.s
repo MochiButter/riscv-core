@@ -14,5 +14,4 @@ sw x3, 0(x4)
 ebreak
 
 .data
-.align 8
 store_here:

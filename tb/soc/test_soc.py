@@ -55,6 +55,9 @@ def get_mem(dut):
     dualport = dut.u_axil_ram.DualPort.value
     return dut.u_axil_ram.l_dualport.u_mem.mem if dualport else dut.u_axil_ram.l_singleport.u_mem.mem
 
+def get_reg(dut, num):
+    return int(dut.u_core.reg_inst.regs_q[num].get())
+
 async def run_program(dut, filepath, timeout):
     filepath = os.path.abspath(os.path.join(os.path.dirname(__file__), "sim_build", filepath))
 
@@ -142,3 +145,10 @@ async def test_fencei(dut):
 @cocotb.test()
 async def test_aclint(dut):
     await run_program(dut, "aclint.bin", 150)
+    assert get_reg(dut, 5)  == 0
+    assert get_reg(dut, 25) == 0x8000000000000007
+    assert get_reg(dut, 30) == 0
+    assert get_reg(dut, 27) + 4 == get_reg(dut, 28)
+    assert get_reg(dut, 29) == 0x8000000000000003
+    assert get_reg(dut, 30) == 0
+    assert get_reg(dut, 31) == 0xff

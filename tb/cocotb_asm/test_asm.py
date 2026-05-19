@@ -115,6 +115,10 @@ async def run_program(dut, filepath, check_mem=None):
     cocotb.start_soon(instmem.run_instmem(dut))
     cocotb.start_soon(instmem.run_datamem(dut))
 
+    dut.mtip_i.value = 0
+    dut.msip_i.value = 0
+    dut.mtime_i.value = 0
+
     dut.rst_ni.value = 0
     for _ in range(3):
         await dut.clk_i.rising_edge
@@ -233,7 +237,7 @@ async def test_forward(dut):
 @cocotb.test()
 async def test_csr(dut):
     await run_program(dut, "csr.bin")
-    assert dut.reg_inst.regs_q[2].get() == 0x14
+    assert dut.reg_inst.regs_q[2].get() == 0b010101
     assert dut.reg_inst.regs_q[3].get() == 0x15
     assert dut.reg_inst.regs_q[4].get() == 0xb # Environment call from M-mode
     ecall_addr = dut.reg_inst.regs_q[5].get().to_unsigned()

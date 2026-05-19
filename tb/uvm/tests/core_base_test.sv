@@ -33,8 +33,7 @@ class core_base_test #(int AddrWidth, int DataWidth) extends uvm_test;
   virtual task run_phase (uvm_phase phase);
     phase.raise_objection(this);
     init_mem();
-    // FIXME constant addr halt signal
-    watch_bus_event('h38, 'hdeadbeef, watch_datamem_port);
+    watch_bus_event('h1000, 'hdeadbeef, watch_datamem_port);
     phase.drop_objection(this);
   endtask
 
