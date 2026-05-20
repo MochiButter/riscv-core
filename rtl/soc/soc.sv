@@ -4,6 +4,7 @@ module soc
   #()
   (input  logic clk_i
   ,input  logic rst_ni
+  ,input  logic timer_clk_i
   );
 
   parameter BusWidth = 64;
@@ -180,7 +181,7 @@ module soc
 
   ram_sync_axil #(
     .BusWidth    (64),
-    .AddrWidth   (15),
+    .AddrWidth   (16),
     .DualPort    (1'b1)
   ) u_axil_ram (
     .clk_i  (clk_i),
@@ -200,11 +201,12 @@ module soc
   axil_aclint #(
     .BusWidth (64)
   ) u_axil_aclint (
-    .clk_i   (clk_i),
-    .rst_ni  (rst_ni),
-    .msip_o  (msip),
-    .mtip_o  (mtip),
-    .mtime_o (mtime),
+    .clk_i       (clk_i),
+    .rst_ni      (rst_ni),
+    .timer_clk_i (timer_clk_i),
+    .msip_o      (msip),
+    .mtip_o      (mtip),
+    .mtime_o     (mtime),
     `S_AXIL_CONN(aclint)
   );
 endmodule

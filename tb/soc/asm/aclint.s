@@ -36,9 +36,9 @@ csrw mstatus, 0x8
 li x1, RTC_ADDR
 ld x2, 0(x1)
 
-# set the timer to expire 64 ticks from the saved time
+# set the timer to expire 5 ticks from the saved time
 li x1, TIMER_BASE
-li x3, 64
+li x3, 5
 add x2, x2, x3
 sd x2, 0(x1)
 

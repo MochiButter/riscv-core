@@ -46,7 +46,8 @@ COCOTB_TOPLEVEL := soc
 COCOTB_TEST_MODULES := test_soc
 
 TEST_FILES := load store loop misalign fencei aclint
-CUSTOM_SIM_DEPS := $(foreach test,$(TEST_FILES),sim_build/$(test).bin)
+CUSTOM_SIM_DEPS := $(foreach test,$(TEST_FILES),sim_build/$(test)_rom.bin)
+CUSTOM_SIM_DEPS += $(foreach test,$(TEST_FILES),sim_build/$(test)_ram.bin)
 
 RISCV_TOOLCHAIN ?= riscv64-unknown-elf-
 
@@ -60,11 +61,13 @@ sim_build/%.elf: asm/%.s
 	$(RISCV_TOOLCHAIN)gcc -march=rv64i_zicsr_zifencei -mabi=lp64 -nostartfiles \
 		-nostdlib -mcmodel=medany -T soc.ld $< -o $@
 
-sim_build/%.hex: sim_build/%.elf
-	$(RISCV_TOOLCHAIN)objcopy -O verilog --verilog-data-width=8 $< $@
+sim_build/%_rom.bin: sim_build/%.elf
+	$(RISCV_TOOLCHAIN)objcopy -O binary --only-section=.text.init \
+		--only-section=.text --only-section=.rodata $< $@
 
-sim_build/%.bin: sim_build/%.elf
-	$(RISCV_TOOLCHAIN)objcopy -O binary $< $@
+sim_build/%_ram.bin: sim_build/%.elf
+	$(RISCV_TOOLCHAIN)objcopy -O binary --only-section=.data --only-section=.bss \
+	--only-section=.stack $< $@
 
 include $(shell cocotb-config --makefiles)/Makefile.sim
 

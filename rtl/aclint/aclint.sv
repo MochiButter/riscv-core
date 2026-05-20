@@ -2,6 +2,7 @@ module aclint
   import core_pkg::*;
   (input  logic clk_i
   ,input  logic rst_ni
+  ,input  logic timer_clk_i
 
   ,input  logic                  valid_i
   ,input  logic [12:0]           addr_i
@@ -29,13 +30,29 @@ module aclint
 
   logic [Xlen - 1:0] mtimecmp_d, mtimecmp_q, mtime_d, rdata_d, rdata, wmask, wdata;
   logic [15:0] addr_shift;
-  logic msip_d;
+  logic [2:0] timer_ff_sync;
+  logic msip_d, timer_tick;
+
+  // Two registers as a synchronizer, then a third for an edge detector
+  always_comb begin
+    timer_tick = !timer_ff_sync[2] & timer_ff_sync[1];
+  end
+
+  always_ff @(posedge clk_i) begin
+    if (!rst_ni) begin
+      timer_ff_sync <= '0;
+    end else begin
+      timer_ff_sync[0] <= timer_clk_i;
+      timer_ff_sync[1] <= timer_ff_sync[0];
+      timer_ff_sync[2] <= timer_ff_sync[1];
+    end
+  end
 
   always_comb begin
     mtimecmp_d = mtimecmp_q;
     mtip_o = (mtime_o >= mtimecmp_q);
     msip_d = msip_o;
-    mtime_d = mtime_o + 1;
+    mtime_d = mtime_o + timer_tick;
 
     addr_shift = {addr_i, 3'h0};
     rdata = '0;

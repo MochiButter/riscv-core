@@ -20,7 +20,7 @@ module addr_decode
   localparam memory_map_t [NumS - 1:0] MemMap = {
     {64'h20000000, 64'h2000ffff}, // aclint, 64K
     {64'h80000000, 64'h8000ffff}, // rom, 64k
-    {64'h80010000, 64'h80017fff}  // ram, 32k
+    {64'h80010000, 64'h8001ffff}  // ram, 64k
   };
 
   always_comb begin

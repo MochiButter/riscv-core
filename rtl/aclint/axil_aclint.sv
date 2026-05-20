@@ -6,6 +6,8 @@ module axil_aclint
   (input  logic clk_i
   ,input  logic rst_ni
 
+  ,input  logic timer_clk_i
+
   ,output logic                  msip_o
   ,output logic                  mtip_o
   ,output logic [63:0]           mtime_o
@@ -86,18 +88,19 @@ module axil_aclint
   );
 
   aclint u_aclint (
-    .clk_i   (clk_i),
-    .rst_ni  (rst_ni),
-    .valid_i (wr_en | rd_en),
-    .addr_i  (mem_addr),
-    .wr_en_i (wr_en),
-    .wdata_i (saved_wdata),
-    .wstrb_i (saved_wmask),
-    .rdata_o (s_axil_rdata),
-    .error_o (error),
-    .msip_o  (msip_o),
-    .mtip_o  (mtip_o),
-    .mtime_o (mtime_o)
+    .clk_i       (clk_i),
+    .rst_ni      (rst_ni),
+    .timer_clk_i (timer_clk_i),
+    .valid_i     (wr_en | rd_en),
+    .addr_i      (mem_addr),
+    .wr_en_i     (wr_en),
+    .wdata_i     (saved_wdata),
+    .wstrb_i     (saved_wmask),
+    .rdata_o     (s_axil_rdata),
+    .error_o     (error),
+    .msip_o      (msip_o),
+    .mtip_o      (mtip_o),
+    .mtime_o     (mtime_o)
   );
 
   logic [BusWidth - AddrWidthWord - 1:0] __unused_waddr, __unused_raddr;

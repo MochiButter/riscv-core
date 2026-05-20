@@ -48,6 +48,16 @@ def dump_axil_bus(cycle, dut):
         return ret
     return False
 
+def simulate_io(dut):
+    if dut.core_awvalid.value and dut.core_awready.value and \
+            dut.core_wvalid.value and dut.core_wready.value:
+        addr = int(dut.core_awaddr.value)
+        if addr == 0x8003fff8:
+            wdata = int(dut.core_wdata.value)
+            wstrb = int(dut.core_wstrb.value)
+            data = wdata & wstrb & 0xff
+            print(chr(data))
+
 def get_rom(dut):
     return dut.u_axil_rom.u_mem.mem
 
@@ -59,16 +69,17 @@ def get_reg(dut, num):
     return int(dut.u_core.reg_inst.regs_q[num].get())
 
 async def run_program(dut, filepath, timeout):
-    filepath = os.path.abspath(os.path.join(os.path.dirname(__file__), "sim_build", filepath))
+    rom_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "sim_build", filepath + "_rom.bin"))
 
-    cocotb.start_soon(Clock(dut.clk_i, 10, unit="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, 1, unit="us").start())
+    cocotb.start_soon(Clock(dut.timer_clk_i, 100, unit="us").start())
 
     dut.rst_ni.value = 0
     for _ in range(3):
         await dut.clk_i.rising_edge
     dut.rst_ni.value = 1
 
-    program = open(filepath, "rb")
+    program = open(rom_path, "rb")
     word = program.read(8)
     cnt = 0
     while (word):
@@ -79,20 +90,24 @@ async def run_program(dut, filepath, timeout):
         word = program.read(8)
     program.close()
 
+    f = open("sim_build/log_" + filepath + ".txt", "a")
+
     cycles = 0
     is_ebreak = False
     while not is_ebreak:
         is_ebreak = dut.rvfi_valid.value and dut.rvfi_insn.value == 0x00100073
+        simulate_io(dut)
         axil = dump_axil_bus(cycles, dut)
         if axil:
-            logger.info(axil)
+            print(axil, file=f)
         await dut.clk_i.rising_edge
         cycles += 1
         assert cycles < timeout, f"Cycles exceeded {timeout}"
+    f.close()
 
 @cocotb.test()
 async def test_load(dut):
-    await run_program(dut, "load.bin", 100)
+    await run_program(dut, "load", 100)
     assert dut.u_core.reg_inst.regs_q[2].get().to_unsigned() == 0xffffffff87654321
     assert dut.u_core.reg_inst.regs_q[3].get().to_unsigned() == 0x00000021
     assert dut.u_core.reg_inst.regs_q[4].get().to_unsigned() == 0xffffffffffffff87
@@ -103,7 +118,7 @@ async def test_load(dut):
 
 @cocotb.test()
 async def test_store(dut):
-    await run_program(dut, "store.bin", 100)
+    await run_program(dut, "store", 100)
     mem = get_mem(dut)
     base_addr = int((dut.u_core.reg_inst.regs_q[2].get().to_unsigned() - 0x80010000) / 8)
     assert mem[base_addr + 0].value == 0xdeadbeef
@@ -116,7 +131,7 @@ async def test_store(dut):
 
 @cocotb.test()
 async def test_loop(dut):
-    await run_program(dut, "loop.bin", 100)
+    await run_program(dut, "loop", 100)
     assert dut.u_core.reg_inst.regs_q[1].get().to_unsigned()  == 0x00000072
     assert dut.u_core.reg_inst.regs_q[2].get().to_unsigned()  == 0x00000064
     assert dut.u_core.reg_inst.regs_q[3].get().to_unsigned()  == 0xdeadbeef
@@ -126,7 +141,7 @@ async def test_loop(dut):
 
 @cocotb.test()
 async def test_misalign(dut):
-    await run_program(dut, "misalign.bin", 150)
+    await run_program(dut, "misalign", 150)
     assert dut.u_core.reg_inst.regs_q[31].get() == 2
     mem = get_mem(dut)
     base_addr = int((dut.u_core.reg_inst.regs_q[5].get().to_unsigned() - 0x80010000) / 8)
@@ -136,7 +151,7 @@ async def test_misalign(dut):
 
 @cocotb.test()
 async def test_fencei(dut):
-    await run_program(dut, "fencei.bin", 50)
+    await run_program(dut, "fencei", 50)
     # unlike the cocotb test, writing to the rom will not work
     # ideally this test will also test the SLVERR, but the core's memory
     # interface doesn't have that signal right now
@@ -144,7 +159,7 @@ async def test_fencei(dut):
 
 @cocotb.test()
 async def test_aclint(dut):
-    await run_program(dut, "aclint.bin", 150)
+    await run_program(dut, "aclint", 600)
     assert get_reg(dut, 5)  == 0
     assert get_reg(dut, 25) == 0x8000000000000007
     assert get_reg(dut, 30) == 0
