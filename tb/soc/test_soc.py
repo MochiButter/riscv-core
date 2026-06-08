@@ -48,15 +48,20 @@ def dump_axil_bus(cycle, dut):
         return ret
     return False
 
-def simulate_io(dut):
+def simulate_io(dut, cur_buffer):
     if dut.core_awvalid.value and dut.core_awready.value and \
             dut.core_wvalid.value and dut.core_wready.value:
         addr = int(dut.core_awaddr.value)
-        if addr == 0x8003fff8:
+        if addr == 0x8002fff8:
             wdata = int(dut.core_wdata.value)
-            wstrb = int(dut.core_wstrb.value)
-            data = wdata & wstrb & 0xff
-            print(chr(data))
+            data = wdata & 0xff
+            char = chr(data)
+            if char != '\n':
+                return cur_buffer + char
+            else:
+                logger.info(cur_buffer)
+                return ""
+    return cur_buffer
 
 def get_rom(dut):
     return dut.u_axil_rom.u_mem.mem
@@ -90,19 +95,22 @@ async def run_program(dut, filepath, timeout):
         word = program.read(8)
     program.close()
 
-    f = open("sim_build/log_" + filepath + ".txt", "a")
+    f = open("sim_build/log_" + filepath + ".txt", "w")
 
     cycles = 0
     is_ebreak = False
+    cur_buffer = ""
     while not is_ebreak:
         is_ebreak = dut.rvfi_valid.value and dut.rvfi_insn.value == 0x00100073
-        simulate_io(dut)
+        cur_buffer = simulate_io(dut, cur_buffer)
         axil = dump_axil_bus(cycles, dut)
         if axil:
             print(axil, file=f)
         await dut.clk_i.rising_edge
         cycles += 1
         assert cycles < timeout, f"Cycles exceeded {timeout}"
+    if cur_buffer != "":
+        logger.info(cur_buffer)
     f.close()
 
 @cocotb.test()
@@ -120,7 +128,7 @@ async def test_load(dut):
 async def test_store(dut):
     await run_program(dut, "store", 100)
     mem = get_mem(dut)
-    base_addr = int((dut.u_core.reg_inst.regs_q[2].get().to_unsigned() - 0x80010000) / 8)
+    base_addr = int((dut.u_core.reg_inst.regs_q[2].get().to_unsigned() - 0x80080000) / 8)
     assert mem[base_addr + 0].value == 0xdeadbeef
     assert mem[base_addr + 1].value == 0x0000beef
     assert mem[base_addr + 2].value == 0xbeef0000
@@ -136,7 +144,7 @@ async def test_loop(dut):
     assert dut.u_core.reg_inst.regs_q[2].get().to_unsigned()  == 0x00000064
     assert dut.u_core.reg_inst.regs_q[3].get().to_unsigned()  == 0xdeadbeef
     mem = get_mem(dut)
-    base_addr = int((dut.u_core.reg_inst.regs_q[4].get().to_unsigned() - 0x80010000) / 8)
+    base_addr = int((dut.u_core.reg_inst.regs_q[4].get().to_unsigned() - 0x80080000) / 8)
     assert mem[base_addr].value == 0xdeadbeef
 
 @cocotb.test()
@@ -144,7 +152,7 @@ async def test_misalign(dut):
     await run_program(dut, "misalign", 150)
     assert dut.u_core.reg_inst.regs_q[31].get() == 2
     mem = get_mem(dut)
-    base_addr = int((dut.u_core.reg_inst.regs_q[5].get().to_unsigned() - 0x80010000) / 8)
+    base_addr = int((dut.u_core.reg_inst.regs_q[5].get().to_unsigned() - 0x80080000) / 8)
     assert mem[base_addr + 0].value == 0
     assert mem[base_addr + 1].value == 4
     assert mem[base_addr + 2].value == 6
@@ -167,3 +175,7 @@ async def test_aclint(dut):
     assert get_reg(dut, 29) == 0x8000000000000003
     assert get_reg(dut, 30) == 0
     assert get_reg(dut, 31) == 0xff
+
+@cocotb.test()
+async def test_freertos(dut):
+    await run_program(dut, "freertos", 0xfffff)

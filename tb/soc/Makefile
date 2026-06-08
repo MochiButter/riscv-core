@@ -47,11 +47,16 @@ COCOTB_TEST_MODULES := test_soc
 
 TEST_FILES := load store loop misalign fencei aclint
 CUSTOM_SIM_DEPS := $(foreach test,$(TEST_FILES),sim_build/$(test)_rom.bin)
-CUSTOM_SIM_DEPS += $(foreach test,$(TEST_FILES),sim_build/$(test)_ram.bin)
+CUSTOM_SIM_DEPS += sim_build/freertos_rom.bin
+
+FREERTOS_DEPS := freertos/main.c freertos/main_blinky.c freertos/Makefile \
+								 freertos/FreeRTOSConfig.h freertos/start.S
 
 RISCV_TOOLCHAIN ?= riscv64-unknown-elf-
 
-.PHONY: lint
+.PHONY: fullclean lint svlint
+
+include $(shell cocotb-config --makefiles)/Makefile.sim
 
 sim_build/%.elf: ../cocotb_asm/asm/%.s
 	$(RISCV_TOOLCHAIN)gcc -march=rv64i_zicsr_zifencei -mabi=lp64 -nostartfiles \
@@ -62,14 +67,16 @@ sim_build/%.elf: asm/%.s
 		-nostdlib -mcmodel=medany -T soc.ld $< -o $@
 
 sim_build/%_rom.bin: sim_build/%.elf
-	$(RISCV_TOOLCHAIN)objcopy -O binary --only-section=.text.init \
-		--only-section=.text --only-section=.rodata $< $@
+	$(RISCV_TOOLCHAIN)objcopy -O binary $< $@
 
-sim_build/%_ram.bin: sim_build/%.elf
-	$(RISCV_TOOLCHAIN)objcopy -O binary --only-section=.data --only-section=.bss \
-	--only-section=.stack $< $@
+freertos/build/RTOSDemo64.elf: $(FREERTOS_DEPS)
+	$(MAKE) -C freertos
 
-include $(shell cocotb-config --makefiles)/Makefile.sim
+sim_build/freertos_rom.bin: freertos/build/RTOSDemo64.elf
+	$(RISCV_TOOLCHAIN)objcopy -O binary $< $@
+
+fullclean: clean
+	$(MAKE) -C freertos clean
 
 lint: $(VERILOG_SOURCES)
 	verilator $(ROOT_DIR)/tb/verilator.vlt --lint-only --timing \

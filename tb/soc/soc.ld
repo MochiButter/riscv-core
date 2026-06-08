@@ -3,8 +3,8 @@ ENTRY( _start )
 
 MEMORY
 {
-  rom (rxa) : ORIGIN = 0x80000000, LENGTH = 64K
-  ram (wxa) : ORIGIN = 0x80000000 + 64K, LENGTH = 64K
+  rom (rxa) : ORIGIN = 0x80000000, LENGTH = 512K
+  ram (wxa) : ORIGIN = 0x80000000 + 512K, LENGTH = 512K
 }
 
 SECTIONS
@@ -22,7 +22,7 @@ SECTIONS
   .stack : {
     . = ALIGN(0x10);
     _stack_bottom = .;
-    . += 16K;
+    . += 32K;
     _stack_top = .;
   } >ram AT>ram
   _end = .;

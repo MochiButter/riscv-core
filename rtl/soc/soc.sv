@@ -181,7 +181,7 @@ module soc
 
   ram_sync_axil #(
     .BusWidth    (64),
-    .AddrWidth   (16),
+    .AddrWidth   (19),
     .DualPort    (1'b1)
   ) u_axil_ram (
     .clk_i  (clk_i),
@@ -191,7 +191,7 @@ module soc
 
   rom_sync_axil #(
     .BusWidth    (64),
-    .AddrWidth   (16)
+    .AddrWidth   (19)
   ) u_axil_rom (
     .clk_i  (clk_i),
     .rst_ni (rst_ni),

@@ -5,3 +5,6 @@
 	path = dv/riscv-formal/riscv-formal
 	url = https://github.com/YosysHQ/riscv-formal
   ignore = dirty
+[submodule "tb/soc/freertos/FreeRTOS"]
+	path = tb/soc/freertos/FreeRTOS
+	url = https://github.com/FreeRTOS/FreeRTOS/
