@@ -11,9 +11,9 @@ module ram_sync_axil
   ,parameter UseInitFile = 0
   ,parameter InitFile = {`BINPATH, "soc/arithmetic.hex"}
   )
-  (input  logic clk_i
-  ,input  logic rst_ni
-  `S_AXIL_IO
+  (input  logic       clk_i
+  ,input  logic       rst_ni
+  ,axil_if.s s_axil
   );
 
   localparam ShiftBits = $clog2(MaskBits);
@@ -28,30 +28,30 @@ module ram_sync_axil
     saved_addr_w_valid, saved_wdata_valid, saved_addr_r_valid,
     wr_en, rd_en, bvalid_d, rvalid_d;
 
-  assign mem_addr_w = s_axil_awaddr[AddrWidthWord + ShiftBits - 1:ShiftBits];
-  assign mem_addr_r = s_axil_araddr[AddrWidthWord + ShiftBits - 1:ShiftBits];
+  assign mem_addr_w = s_axil.awaddr[AddrWidthWord + ShiftBits - 1:ShiftBits];
+  assign mem_addr_r = s_axil.araddr[AddrWidthWord + ShiftBits - 1:ShiftBits];
 
   assign wr_en = saved_addr_w_valid && saved_wdata_valid &&
-    (!s_axil_bvalid || s_axil_bready);
-  assign rd_en = saved_addr_r_valid && (!s_axil_rvalid || s_axil_rready);
+    (!s_axil.bvalid || s_axil.bready);
+  assign rd_en = saved_addr_r_valid && (!s_axil.rvalid || s_axil.rready);
 
-  assign s_axil_bresp = axil_pkg::OKAY;
-  assign s_axil_rresp = axil_pkg::OKAY;
+  assign s_axil.bresp = axil_pkg::OKAY;
+  assign s_axil.rresp = axil_pkg::OKAY;
 
   assign bvalid_d = wr_en ? 1'b1 :
-                    s_axil_bready ? 1'b0 :
-                    s_axil_bvalid;
+                    s_axil.bready ? 1'b0 :
+                    s_axil.bvalid;
   assign rvalid_d = rd_en ? 1'b1 :
-                    s_axil_rready ? 1'b0 :
-                    s_axil_rvalid;
+                    s_axil.rready ? 1'b0 :
+                    s_axil.rvalid;
 
   always_ff @(posedge clk_i) begin
     if (!rst_ni) begin
-      s_axil_bvalid <= 1'b0;
-      s_axil_rvalid <= 1'b0;
+      s_axil.bvalid <= 1'b0;
+      s_axil.rvalid <= 1'b0;
     end else begin
-      s_axil_bvalid <= bvalid_d;
-      s_axil_rvalid <= rvalid_d;
+      s_axil.bvalid <= bvalid_d;
+      s_axil.rvalid <= rvalid_d;
     end
   end
 
@@ -74,7 +74,7 @@ module ram_sync_axil
     .clk_i      (clk_i),
     .rst_ni     (rst_ni),
     .wr_valid_i (skid_wdata_valid),
-    .wr_data_i  ({s_axil_wdata, s_axil_wstrb}),
+    .wr_data_i  ({s_axil.wdata, s_axil.wstrb}),
     .wr_ready_o (skid_wdata_ready),
     .rd_ready_i (wr_en),
     .rd_data_o  ({saved_wdata, saved_wmask}),
@@ -98,12 +98,12 @@ module ram_sync_axil
     /* The standard configuration where both writes and reads can happen
      * simultaneously. Acts the same as a normal axi lite register
      */
-    assign skid_addr_w_valid = s_axil_awvalid;
-    assign skid_wdata_valid = s_axil_wvalid;
-    assign skid_addr_r_valid = s_axil_arvalid;
-    assign s_axil_awready = skid_addr_w_ready;
-    assign s_axil_wready  = skid_wdata_ready;
-    assign s_axil_arready = skid_addr_r_ready;
+    assign skid_addr_w_valid = s_axil.awvalid;
+    assign skid_wdata_valid = s_axil.wvalid;
+    assign skid_addr_r_valid = s_axil.arvalid;
+    assign s_axil.awready = skid_addr_w_ready;
+    assign s_axil.wready  = skid_wdata_ready;
+    assign s_axil.arready = skid_addr_r_ready;
 
     ram_1r1w_sync #(
       .DataWidth   (BusWidth),
@@ -119,7 +119,7 @@ module ram_sync_axil
       .wmask_i    (saved_wmask),
       .r_en_i     (rd_en),
       .raddr_i    (saved_addr_r),
-      .rdata_o    (s_axil_rdata)
+      .rdata_o    (s_axil.rdata)
     );
   end else begin : l_singleport
     /* A version that uses a single-port memory instead
@@ -131,15 +131,15 @@ module ram_sync_axil
     logic req_is_write, write_ready;
 
     assign write_ready = skid_addr_w_ready && skid_wdata_ready && req_is_write;
-    assign req_is_write = !s_axil_arvalid && s_axil_awvalid && s_axil_wvalid;
+    assign req_is_write = !s_axil.arvalid && s_axil.awvalid && s_axil.wvalid;
     assign mem_addr = req_is_write ? saved_addr_w : saved_addr_r;
 
     assign skid_addr_w_valid = req_is_write;
     assign skid_wdata_valid  = req_is_write;
-    assign skid_addr_r_valid = s_axil_arvalid;
-    assign s_axil_awready = write_ready;
-    assign s_axil_wready  = write_ready;
-    assign s_axil_arready = skid_addr_r_ready;
+    assign skid_addr_r_valid = s_axil.arvalid;
+    assign s_axil.awready = write_ready;
+    assign s_axil.wready  = write_ready;
+    assign s_axil.arready = skid_addr_r_ready;
 
     ram_1rw_sync #(
       .DataWidth   (BusWidth),
@@ -153,17 +153,19 @@ module ram_sync_axil
       .addr_i     (mem_addr),
       .wdata_i    (saved_wdata),
       .wmask_i    (saved_wmask),
-      .rdata_o    (s_axil_rdata)
+      .rdata_o    (s_axil.rdata)
     );
   end
 
   logic [BusWidth - AddrWidthWord - 1:0] __unused_waddr, __unused_raddr;
+  axil_prot_t __unused_prot [0:1];
   assign __unused_waddr =
-    {s_axil_awaddr[BusWidth - 1:AddrWidthWord + ShiftBits],
-    s_axil_awaddr[ShiftBits - 1:0]};
+    {s_axil.awaddr[BusWidth - 1:AddrWidthWord + ShiftBits],
+    s_axil.awaddr[ShiftBits - 1:0]};
   assign __unused_raddr =
-    {s_axil_araddr[BusWidth - 1:AddrWidthWord + ShiftBits],
-    s_axil_araddr[ShiftBits - 1:0]};
+    {s_axil.araddr[BusWidth - 1:AddrWidthWord + ShiftBits],
+    s_axil.araddr[ShiftBits - 1:0]};
+  assign __unused_prot = {s_axil.awprot, s_axil.arprot};
 
 `ifdef FORMAL
   `define IS_S_AXIL
@@ -186,12 +188,12 @@ module ram_sync_axil
   // Can't use past on the 0th cycle
   always_ff @(posedge clk_i) begin
     if ($rose(rst_ni)) begin
-      `M_AXIL_CHECK (!s_axil_awvalid);
-      `M_AXIL_CHECK (!s_axil_wvalid);
-      `M_AXIL_CHECK (!s_axil_arvalid);
+      `M_AXIL_CHECK (!s_axil.awvalid);
+      `M_AXIL_CHECK (!s_axil.wvalid);
+      `M_AXIL_CHECK (!s_axil.arvalid);
 
-      `S_AXIL_CHECK (!s_axil_bvalid);
-      `S_AXIL_CHECK (!s_axil_rvalid);
+      `S_AXIL_CHECK (!s_axil.bvalid);
+      `S_AXIL_CHECK (!s_axil.rvalid);
     end
   end
 
@@ -201,40 +203,40 @@ module ram_sync_axil
   // valid data must not change until a handshake
   always_ff @(posedge clk) begin
     if (!$initstate && $past(rst_ni)) begin
-      if ($past(s_axil_awvalid && !s_axil_awready)) begin
-        `M_AXIL_CHECK (s_axil_awvalid);
-        `M_AXIL_CHECK ($stable(s_axil_awaddr));
-        `M_AXIL_CHECK ($stable(s_axil_awprot));
+      if ($past(s_axil.awvalid && !s_axil.awready)) begin
+        `M_AXIL_CHECK (s_axil.awvalid);
+        `M_AXIL_CHECK ($stable(s_axil.awaddr));
+        `M_AXIL_CHECK ($stable(s_axil.awprot));
       end
-      if ($past(s_axil_wvalid && !s_axil_wready)) begin
-        `M_AXIL_CHECK (s_axil_wvalid);
-        `M_AXIL_CHECK ($stable(s_axil_wdata));
-        `M_AXIL_CHECK ($stable(s_axil_wstrb));
+      if ($past(s_axil.wvalid && !s_axil.wready)) begin
+        `M_AXIL_CHECK (s_axil.wvalid);
+        `M_AXIL_CHECK ($stable(s_axil.wdata));
+        `M_AXIL_CHECK ($stable(s_axil.wstrb));
       end
-      if ($past(s_axil_arvalid && !s_axil_arready)) begin
-        `M_AXIL_CHECK (s_axil_arvalid);
-        `M_AXIL_CHECK ($stable(s_axil_araddr));
-        `M_AXIL_CHECK ($stable(s_axil_arprot));
+      if ($past(s_axil.arvalid && !s_axil.arready)) begin
+        `M_AXIL_CHECK (s_axil.arvalid);
+        `M_AXIL_CHECK ($stable(s_axil.araddr));
+        `M_AXIL_CHECK ($stable(s_axil.arprot));
       end
-      if ($past(s_axil_rvalid && !s_axil_rready)) begin
-        `S_AXIL_CHECK (s_axil_rvalid);
-        `S_AXIL_CHECK ($stable(s_axil_rdata));
-        `S_AXIL_CHECK ($stable(s_axil_rresp));
+      if ($past(s_axil.rvalid && !s_axil.rready)) begin
+        `S_AXIL_CHECK (s_axil.rvalid);
+        `S_AXIL_CHECK ($stable(s_axil.rdata));
+        `S_AXIL_CHECK ($stable(s_axil.rresp));
       end
-      if ($past(s_axil_bvalid && !s_axil_bready)) begin
-        `S_AXIL_CHECK (s_axil_bvalid);
-        `S_AXIL_CHECK ($stable(s_axil_bresp));
+      if ($past(s_axil.bvalid && !s_axil.bready)) begin
+        `S_AXIL_CHECK (s_axil.bvalid);
+        `S_AXIL_CHECK ($stable(s_axil.bresp));
       end
     end
   end
 
   always_ff @(posedge clk_i) begin
     if (rst_ni) begin
-      cover (s_axil_awready && s_axil_awvalid);
-      cover (s_axil_wready && s_axil_wvalid);
-      cover (s_axil_arready && s_axil_arvalid);
-      cover (s_axil_bready && s_axil_bvalid);
-      cover (s_axil_rready && s_axil_rvalid);
+      cover (s_axil.awready && s_axil.awvalid);
+      cover (s_axil.wready  && s_axil.wvalid);
+      cover (s_axil.arready && s_axil.arvalid);
+      cover (s_axil.bready  && s_axil.bvalid);
+      cover (s_axil.rready  && s_axil.rvalid);
     end
   end
 

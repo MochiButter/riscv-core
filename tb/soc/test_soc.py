@@ -23,23 +23,23 @@ def get_resp_code(resp):
 def dump_axil_bus(cycle, dut):
     ret = ""
 
-    if dut.core_awvalid.value and dut.core_awready.value:
-        addr = int(dut.core_awaddr.value)
+    if dut.core_axil_if.awvalid.value and dut.core_axil_if.awready.value:
+        addr = int(dut.core_axil_if.awaddr.value)
         ret += f"waddr  [0x{addr:016x}]  "
-    if dut.core_wvalid.value and dut.core_wready.value:
-        wdata = int(dut.core_wdata.value)
+    if dut.core_axil_if.wvalid.value and dut.core_axil_if.wready.value:
+        wdata = int(dut.core_axil_if.wdata.value)
         ret += f"wdata  0x{wdata:016x}  "
-    if dut.core_bvalid.value and dut.core_bready.value:
-        bresp = dut.core_bresp.value
+    if dut.core_axil_if.bvalid.value and dut.core_axil_if.bready.value:
+        bresp = dut.core_axil_if.bresp.value
         bresp_str = get_resp_code(bresp)
         ret += f"write resp  {bresp_str}  "
 
-    if dut.core_arvalid.value and dut.core_arready.value:
-        addr = int(dut.core_araddr.value)
+    if dut.core_axil_if.arvalid.value and dut.core_axil_if.arready.value:
+        addr = int(dut.core_axil_if.araddr.value)
         ret += f"read  [0x{addr:016x}]  "
-    if dut.core_rvalid.value and dut.core_rready.value:
-        rdata = int(dut.core_rdata.value)
-        rresp = dut.core_rresp.value
+    if dut.core_axil_if.rvalid.value and dut.core_axil_if.rready.value:
+        rdata = int(dut.core_axil_if.rdata.value)
+        rresp = dut.core_axil_if.rresp.value
         rresp_str = get_resp_code(rresp)
         ret += f"read resp  0x{rdata:016x} : {rresp_str}  "
 
@@ -49,11 +49,26 @@ def dump_axil_bus(cycle, dut):
     return False
 
 def simulate_io(dut, cur_buffer):
-    if dut.core_awvalid.value and dut.core_awready.value and \
-            dut.core_wvalid.value and dut.core_wready.value:
-        addr = int(dut.core_awaddr.value)
+    if dut.core_axil_if.awvalid.value and dut.core_axil_if.awready.value and \
+            dut.core_axil_if.wvalid.value and dut.core_axil_if.wready.value:
+        addr = int(dut.core_axil_if.awaddr.value)
         if addr == 0x8002fff8:
-            wdata = int(dut.core_wdata.value)
+            wdata = int(dut.core_axil_if.wdata.value)
+            data = wdata & 0xff
+            char = chr(data)
+            if char != '\n':
+                return cur_buffer + char
+            else:
+                logger.info(cur_buffer)
+                return ""
+    return cur_buffer
+
+def simulate_io(dut, cur_buffer):
+    if dut.core_axil_if.awvalid.value and dut.core_axil_if.awready.value and \
+            dut.core_axil_if.wvalid.value and dut.core_axil_if.wready.value:
+        addr = int(dut.core_axil_if.awaddr.value)
+        if addr == 0x8002fff8:
+            wdata = int(dut.core_axil_if.wdata.value)
             data = wdata & 0xff
             char = chr(data)
             if char != '\n':

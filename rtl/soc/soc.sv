@@ -1,4 +1,3 @@
-//`include "axil_macros.svh"
 module soc
   import axil_pkg::*;
   #()
@@ -24,10 +23,8 @@ module soc
   logic [63:0] mtime;
   logic msip, mtip;
 
-  `AXIL_LOGIC(core)
-  `AXIL_LOGIC(ram)
-  `AXIL_LOGIC(rom)
-  `AXIL_LOGIC(aclint)
+  axil_if #(.BusWidth(BusWidth)) core_axil_if ();
+  axil_if #(.BusWidth(BusWidth)) device_axil_if[2:0] ();
 
 `ifdef RISCV_FORMAL
   // To be used in the soc level test bench
@@ -147,36 +144,17 @@ module soc
     .mem_wmask_i  (bus_wmask),
     .mem_rdata_o  (bus_rdata),
     .mem_rvalid_o (bus_rvalid),
-    `M_AXIL_CONN(core)
+    .m_axil       (core_axil_if)
   );
 
   axil_interconnect #(
     .BusWidth (64),
     .NumS     (3)
   ) axil_interconnect (
-    .clk_i (clk_i),
-    .rst_ni (rst_ni),
-    `S_AXIL_CONN(core)
-    ,
-    .m_axil_awvalid ({ram_awvalid, rom_awvalid, aclint_awvalid}),
-    .m_axil_awready ({ram_awready, rom_awready, aclint_awready}),
-    .m_axil_awaddr  ({ram_awaddr,  rom_awaddr,  aclint_awaddr }),
-    .m_axil_wvalid  ({ram_wvalid,  rom_wvalid,  aclint_wvalid }),
-    .m_axil_wready  ({ram_wready,  rom_wready,  aclint_wready }),
-    .m_axil_wdata   ({ram_wdata,   rom_wdata,   aclint_wdata  }),
-    .m_axil_wstrb   ({ram_wstrb,   rom_wstrb,   aclint_wstrb  }),
-    .m_axil_bvalid  ({ram_bvalid,  rom_bvalid,  aclint_bvalid }),
-    .m_axil_bready  ({ram_bready,  rom_bready,  aclint_bready }),
-    .m_axil_arvalid ({ram_arvalid, rom_arvalid, aclint_arvalid}),
-    .m_axil_arready ({ram_arready, rom_arready, aclint_arready}),
-    .m_axil_araddr  ({ram_araddr,  rom_araddr,  aclint_araddr }),
-    .m_axil_rvalid  ({ram_rvalid,  rom_rvalid,  aclint_rvalid }),
-    .m_axil_rready  ({ram_rready,  rom_rready,  aclint_rready }),
-    .m_axil_rdata   ({ram_rdata,   rom_rdata,   aclint_rdata  }),
-    .m_axil_awprot  ({ram_awprot,  rom_awprot,  aclint_awprot }),
-    .m_axil_bresp   ({ram_bresp,   rom_bresp,   aclint_bresp  }),
-    .m_axil_arprot  ({ram_arprot,  rom_arprot,  aclint_arprot }),
-    .m_axil_rresp   ({ram_rresp,   rom_rresp,   aclint_rresp  })
+    .clk_i          (clk_i),
+    .rst_ni         (rst_ni),
+    .s_axil         (core_axil_if),
+    .m_axil         (device_axil_if)
   );
 
   ram_sync_axil #(
@@ -184,18 +162,18 @@ module soc
     .AddrWidth   (19),
     .DualPort    (1'b1)
   ) u_axil_ram (
-    .clk_i  (clk_i),
-    .rst_ni (rst_ni),
-    `S_AXIL_CONN(ram)
+    .clk_i       (clk_i),
+    .rst_ni      (rst_ni),
+    .s_axil      (device_axil_if[2])
   );
 
   rom_sync_axil #(
     .BusWidth    (64),
     .AddrWidth   (19)
   ) u_axil_rom (
-    .clk_i  (clk_i),
-    .rst_ni (rst_ni),
-    `S_AXIL_CONN(rom)
+    .clk_i       (clk_i),
+    .rst_ni      (rst_ni),
+    .s_axil      (device_axil_if[1])
   );
 
   axil_aclint #(
@@ -207,6 +185,6 @@ module soc
     .msip_o      (msip),
     .mtip_o      (mtip),
     .mtime_o     (mtime),
-    `S_AXIL_CONN(aclint)
+    .s_axil      (device_axil_if[0])
   );
 endmodule

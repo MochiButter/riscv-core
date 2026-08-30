@@ -13,7 +13,7 @@ module mem_to_axil
   ,output logic [BusWidth - 1:0] mem_rdata_o
   ,output logic                  mem_rvalid_o
 
-  `M_AXIL_IO
+  ,axil_if.m m_axil
   );
 
   typedef enum logic [2:0] {
@@ -25,11 +25,11 @@ module mem_to_axil
   always_comb begin
     state_d = state_q;
 
-    m_axil_arvalid = 1'b0;
-    m_axil_awvalid = 1'b0;
-    m_axil_wvalid  = 1'b0;
-    m_axil_rready  = 1'b0;
-    m_axil_bready  = 1'b0;
+    m_axil.arvalid = 1'b0;
+    m_axil.awvalid = 1'b0;
+    m_axil.wvalid  = 1'b0;
+    m_axil.rready  = 1'b0;
+    m_axil.bready  = 1'b0;
 
     mem_ready_o = 1'b0;
 
@@ -39,25 +39,25 @@ module mem_to_axil
       Reset: state_d = Idle;
       Idle, WaitRvalid, WaitBvalid: begin
         if (state_q == WaitRvalid) begin
-          m_axil_rready = 1'b1;
-          state_d = axil_state_e'(m_axil_rvalid ? Idle : WaitRvalid);
+          m_axil.rready = 1'b1;
+          state_d = axil_state_e'(m_axil.rvalid ? Idle : WaitRvalid);
         end else if (state_q == WaitBvalid) begin
-          m_axil_bready = 1'b1;
-          state_d = axil_state_e'(m_axil_bvalid ? Idle : WaitBvalid);
+          m_axil.bready = 1'b1;
+          state_d = axil_state_e'(m_axil.bvalid ? Idle : WaitBvalid);
         end
         if (mem_valid_i && (state_q == Idle ||
-          (state_q == WaitRvalid && m_axil_rvalid) ||
-          (state_q == WaitBvalid && m_axil_bvalid))) begin
+          (state_q == WaitRvalid && m_axil.rvalid) ||
+          (state_q == WaitBvalid && m_axil.bvalid))) begin
           if (mem_wmask_i == '0) begin
-            m_axil_arvalid = 1'b1;
-            if (m_axil_arready) begin
+            m_axil.arvalid = 1'b1;
+            if (m_axil.arready) begin
               state_d     = WaitRvalid;
               mem_ready_o = 1'b1;
             end
           end else begin
-            m_axil_awvalid = 1'b1;
-            m_axil_wvalid  = 1'b1;
-            case ({m_axil_awready, m_axil_wready})
+            m_axil.awvalid = 1'b1;
+            m_axil.wvalid  = 1'b1;
+            case ({m_axil.awready, m_axil.wready})
               2'b01: state_d = WaitAwready;
               2'b10: state_d = WaitWready;
               2'b11: begin
@@ -70,15 +70,15 @@ module mem_to_axil
         end
       end
       WaitAwready: begin
-        m_axil_awvalid = 1'b1;
-        if (m_axil_awready) begin
+        m_axil.awvalid = 1'b1;
+        if (m_axil.awready) begin
           state_d     = WaitBvalid;
           mem_ready_o = 1'b1;
         end
       end
       WaitWready: begin
-        m_axil_wvalid  = 1'b1;
-        if (m_axil_wready) begin
+        m_axil.wvalid  = 1'b1;
+        if (m_axil.wready) begin
           state_d     = WaitBvalid;
           mem_ready_o = 1'b1;
         end
@@ -95,13 +95,17 @@ module mem_to_axil
     end
   end
 
-  assign m_axil_awaddr  = mem_addr_i;
-  assign m_axil_awprot  = '0;
-  assign m_axil_wdata   = mem_wdata_i;
-  assign m_axil_wstrb   = mem_wmask_i;
-  assign m_axil_araddr  = mem_addr_i;
-  assign m_axil_arprot  = '0;
+  assign m_axil.awaddr  = mem_addr_i;
+  assign m_axil.awprot  = '0;
+  assign m_axil.wdata   = mem_wdata_i;
+  assign m_axil.wstrb   = mem_wmask_i;
+  assign m_axil.araddr  = mem_addr_i;
+  assign m_axil.arprot  = '0;
 
-  assign mem_rdata_o = m_axil_rdata;
-  assign mem_rvalid_o = (m_axil_bready && m_axil_bvalid) || (m_axil_rready && m_axil_rvalid);
+  assign mem_rdata_o = m_axil.rdata;
+  assign mem_rvalid_o = (m_axil.bready && m_axil.bvalid) ||
+    (m_axil.rready && m_axil.rvalid);
+
+  axil_resp_e __unused_resp[0:1];
+  assign __unused_resp = {m_axil.bresp, m_axil.rresp};
 endmodule

@@ -12,7 +12,7 @@ module axil_aclint
   ,output logic                  mtip_o
   ,output logic [63:0]           mtime_o
 
-  `S_AXIL_IO
+  ,axil_if.s s_axil
   );
 
   // both write channels must be valid at the same time to be granted a write
@@ -28,36 +28,36 @@ module axil_aclint
   logic skid_addr_w_ready, saved_addr_w_valid, saved_addr_r_valid, wr_en, rd_en,
     req_is_write, write_ready, bvalid_d, rvalid_d, error;
 
-  assign mem_addr_w = s_axil_awaddr[AddrWidthWord + ShiftBits - 1:ShiftBits];
-  assign mem_addr_r = s_axil_araddr[AddrWidthWord + ShiftBits - 1:ShiftBits];
+  assign mem_addr_w = s_axil.awaddr[AddrWidthWord + ShiftBits - 1:ShiftBits];
+  assign mem_addr_r = s_axil.araddr[AddrWidthWord + ShiftBits - 1:ShiftBits];
 
-  assign wr_en = saved_addr_w_valid && (!s_axil_bvalid || s_axil_bready);
-  assign rd_en = saved_addr_r_valid && (!s_axil_rvalid || s_axil_rready);
+  assign wr_en = saved_addr_w_valid && (!s_axil.bvalid || s_axil.bready);
+  assign rd_en = saved_addr_r_valid && (!s_axil.rvalid || s_axil.rready);
 
-  assign s_axil_bresp = error ? axil_pkg::SLVERR : axil_pkg::OKAY;
-  assign s_axil_rresp = error ? axil_pkg::SLVERR : axil_pkg::OKAY;
+  assign s_axil.bresp = error ? axil_pkg::SLVERR : axil_pkg::OKAY;
+  assign s_axil.rresp = error ? axil_pkg::SLVERR : axil_pkg::OKAY;
 
   assign write_ready = skid_addr_w_ready && req_is_write;
-  assign req_is_write = !s_axil_arvalid && s_axil_awvalid && s_axil_wvalid;
+  assign req_is_write = !s_axil.arvalid && s_axil.awvalid && s_axil.wvalid;
   assign mem_addr = req_is_write ? saved_addr_w : saved_addr_r;
 
-  assign s_axil_awready = write_ready;
-  assign s_axil_wready  = write_ready;
+  assign s_axil.awready = write_ready;
+  assign s_axil.wready  = write_ready;
 
   assign bvalid_d = wr_en ? 1'b1 :
-                    s_axil_bready ? 1'b0 :
-                    s_axil_bvalid;
+                    s_axil.bready ? 1'b0 :
+                    s_axil.bvalid;
   assign rvalid_d = rd_en ? 1'b1 :
-                    s_axil_rready ? 1'b0 :
-                    s_axil_rvalid;
+                    s_axil.rready ? 1'b0 :
+                    s_axil.rvalid;
 
   always_ff @(posedge clk_i) begin
     if (!rst_ni) begin
-      s_axil_bvalid <= 1'b0;
-      s_axil_rvalid <= 1'b0;
+      s_axil.bvalid <= 1'b0;
+      s_axil.rvalid <= 1'b0;
     end else begin
-      s_axil_bvalid <= bvalid_d;
-      s_axil_rvalid <= rvalid_d;
+      s_axil.bvalid <= bvalid_d;
+      s_axil.rvalid <= rvalid_d;
     end
   end
 
@@ -67,7 +67,7 @@ module axil_aclint
     .clk_i      (clk_i),
     .rst_ni     (rst_ni),
     .wr_valid_i (req_is_write),
-    .wr_data_i  ({mem_addr_w, s_axil_wdata, s_axil_wstrb}),
+    .wr_data_i  ({mem_addr_w, s_axil.wdata, s_axil.wstrb}),
     .wr_ready_o (skid_addr_w_ready),
     .rd_ready_i (wr_en),
     .rd_data_o  ({saved_addr_w, saved_wdata, saved_wmask}),
@@ -79,9 +79,9 @@ module axil_aclint
   ) save_raddr (
     .clk_i      (clk_i),
     .rst_ni     (rst_ni),
-    .wr_valid_i (s_axil_arvalid),
+    .wr_valid_i (s_axil.arvalid),
     .wr_data_i  (mem_addr_r),
-    .wr_ready_o (s_axil_arready),
+    .wr_ready_o (s_axil.arready),
     .rd_ready_i (rd_en),
     .rd_data_o  (saved_addr_r),
     .rd_valid_o (saved_addr_r_valid)
@@ -96,7 +96,7 @@ module axil_aclint
     .wr_en_i     (wr_en),
     .wdata_i     (saved_wdata),
     .wstrb_i     (saved_wmask),
-    .rdata_o     (s_axil_rdata),
+    .rdata_o     (s_axil.rdata),
     .error_o     (error),
     .msip_o      (msip_o),
     .mtip_o      (mtip_o),
@@ -104,10 +104,12 @@ module axil_aclint
   );
 
   logic [BusWidth - AddrWidthWord - 1:0] __unused_waddr, __unused_raddr;
+  axil_prot_t __unused_prot [0:1];
   assign __unused_waddr =
-    {s_axil_awaddr[BusWidth - 1:AddrWidthWord + ShiftBits],
-    s_axil_awaddr[ShiftBits - 1:0]};
+    {s_axil.awaddr[BusWidth - 1:AddrWidthWord + ShiftBits],
+    s_axil.awaddr[ShiftBits - 1:0]};
   assign __unused_raddr =
-    {s_axil_araddr[BusWidth - 1:AddrWidthWord + ShiftBits],
-    s_axil_araddr[ShiftBits - 1:0]};
+    {s_axil.araddr[BusWidth - 1:AddrWidthWord + ShiftBits],
+    s_axil.araddr[ShiftBits - 1:0]};
+  assign __unused_prot = {s_axil.awprot, s_axil.arprot};
 endmodule

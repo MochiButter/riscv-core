@@ -7,30 +7,61 @@ module axil_interconnect
   (input  logic clk_i
   ,input  logic rst_ni
 
-  `S_AXIL_IO
-
-  ,output logic                  m_axil_awvalid [0:NumS - 1]
-  ,input  logic                  m_axil_awready [0:NumS - 1]
-  ,output logic [BusWidth - 1:0] m_axil_awaddr  [0:NumS - 1]
-  ,output logic                  m_axil_wvalid  [0:NumS - 1]
-  ,input  logic                  m_axil_wready  [0:NumS - 1]
-  ,output logic [BusWidth - 1:0] m_axil_wdata   [0:NumS - 1]
-  ,output logic [MaskBits - 1:0] m_axil_wstrb   [0:NumS - 1]
-  ,input  logic                  m_axil_bvalid  [0:NumS - 1]
-  ,output logic                  m_axil_bready  [0:NumS - 1]
-  ,output logic                  m_axil_arvalid [0:NumS - 1]
-  ,input  logic                  m_axil_arready [0:NumS - 1]
-  ,output logic [BusWidth - 1:0] m_axil_araddr  [0:NumS - 1]
-  ,input  logic                  m_axil_rvalid  [0:NumS - 1]
-  ,output logic                  m_axil_rready  [0:NumS - 1]
-  ,input  logic [BusWidth - 1:0] m_axil_rdata   [0:NumS - 1]
-  /* verilator lint_off UNUSEDSIGNAL */
-  ,output axil_prot_t            m_axil_awprot  [0:NumS - 1]
-  ,input  axil_resp_e            m_axil_bresp   [0:NumS - 1]
-  ,output axil_prot_t            m_axil_arprot  [0:NumS - 1]
-  ,input  axil_resp_e            m_axil_rresp   [0:NumS - 1]
-  /* verilator lint_on UNUSEDSIGNAL */
+  ,axil_if.s s_axil
+  ,axil_if.m m_axil[0:NumS - 1]
   );
+
+  /* Interfaces can't be accessed with non-const indices
+   * The interface signals are assigned to/from logic instead */
+  logic                  m_axil_awvalid [0:NumS - 1];
+  logic                  m_axil_awready [0:NumS - 1];
+  logic [BusWidth - 1:0] m_axil_awaddr  [0:NumS - 1];
+  axil_prot_t            m_axil_awprot  [0:NumS - 1];
+
+  logic                  m_axil_wvalid  [0:NumS - 1];
+  logic                  m_axil_wready  [0:NumS - 1];
+  logic [BusWidth - 1:0] m_axil_wdata   [0:NumS - 1];
+  logic [MaskBits - 1:0] m_axil_wstrb   [0:NumS - 1];
+
+  logic                  m_axil_bvalid  [0:NumS - 1];
+  logic                  m_axil_bready  [0:NumS - 1];
+  axil_resp_e            m_axil_bresp   [0:NumS - 1];
+
+  logic                  m_axil_arvalid [0:NumS - 1];
+  logic                  m_axil_arready [0:NumS - 1];
+  logic [BusWidth - 1:0] m_axil_araddr  [0:NumS - 1];
+  axil_prot_t            m_axil_arprot  [0:NumS - 1];
+
+  logic                  m_axil_rvalid  [0:NumS - 1];
+  logic                  m_axil_rready  [0:NumS - 1];
+  logic [BusWidth - 1:0] m_axil_rdata   [0:NumS - 1];
+  axil_resp_e            m_axil_rresp   [0:NumS - 1];
+
+  for (genvar i = 0; i < NumS; i ++) begin : l_if_assign
+    assign m_axil[i].awvalid = m_axil_awvalid[i];
+    assign m_axil_awready[i] = m_axil[i].awready;
+    assign m_axil[i].awaddr  = m_axil_awaddr[i];
+    assign m_axil[i].awprot  = m_axil_awprot[i];
+
+    assign m_axil[i].wvalid  = m_axil_wvalid[i];
+    assign m_axil_wready[i]  = m_axil[i].wready;
+    assign m_axil[i].wdata   = m_axil_wdata[i];
+    assign m_axil[i].wstrb   = m_axil_wstrb[i];
+
+    assign m_axil_bvalid[i]  = m_axil[i].bvalid;
+    assign m_axil[i].bready  = m_axil_bready[i];
+    assign m_axil_bresp[i]   = m_axil[i].bresp;
+
+    assign m_axil[i].arvalid = m_axil_arvalid[i];
+    assign m_axil_arready[i] = m_axil[i].arready;
+    assign m_axil[i].araddr  = m_axil_araddr[i];
+    assign m_axil[i].arprot  = m_axil_arprot[i];
+
+    assign m_axil_rvalid[i]  = m_axil[i].rvalid;
+    assign m_axil[i].rready  = m_axil_rready[i];
+    assign m_axil_rdata[i]   = m_axil[i].rdata;
+    assign m_axil_rresp[i]   = m_axil[i].rresp;
+  end
 
   /* write signals */
   logic [BusWidth - 1:0] wr_req_addr, wr_req_data;
@@ -60,9 +91,9 @@ module axil_interconnect
   ) aw_incoming (
     .clk_i      (clk_i),
     .rst_ni     (rst_ni),
-    .wr_valid_i (s_axil_awvalid),
-    .wr_data_i  (s_axil_awaddr),
-    .wr_ready_o (s_axil_awready),
+    .wr_valid_i (s_axil.awvalid),
+    .wr_data_i  (s_axil.awaddr),
+    .wr_ready_o (s_axil.awready),
     .rd_ready_i (wr_req_ready),
     .rd_data_o  (wr_req_addr),
     .rd_valid_o (aw_req_valid)
@@ -73,9 +104,9 @@ module axil_interconnect
   ) w_incoming (
     .clk_i      (clk_i),
     .rst_ni     (rst_ni),
-    .wr_valid_i (s_axil_wvalid),
-    .wr_data_i  ({s_axil_wdata, s_axil_wstrb}),
-    .wr_ready_o (s_axil_wready),
+    .wr_valid_i (s_axil.wvalid),
+    .wr_data_i  ({s_axil.wdata, s_axil.wstrb}),
+    .wr_ready_o (s_axil.wready),
     .rd_ready_i (wr_req_ready),
     .rd_data_o  ({wr_req_data, wr_req_strb}),
     .rd_valid_o (w_req_valid)
@@ -111,9 +142,9 @@ module axil_interconnect
     .wr_valid_i (sel_bvalid),
     .wr_data_i  (sel_bresp),
     .wr_ready_o (sel_bready),
-    .rd_ready_i (s_axil_bready),
-    .rd_data_o  (s_axil_bresp),
-    .rd_valid_o (s_axil_bvalid)
+    .rd_ready_i (s_axil.bready),
+    .rd_data_o  (s_axil.bresp),
+    .rd_valid_o (s_axil.bvalid)
   );
 
   /* read signals */
@@ -143,9 +174,9 @@ module axil_interconnect
   ) rd_incoming (
     .clk_i      (clk_i),
     .rst_ni     (rst_ni),
-    .wr_valid_i (s_axil_arvalid),
-    .wr_data_i  (s_axil_araddr),
-    .wr_ready_o (s_axil_arready),
+    .wr_valid_i (s_axil.arvalid),
+    .wr_data_i  (s_axil.araddr),
+    .wr_ready_o (s_axil.arready),
     .rd_ready_i (rd_req_ready),
     .rd_data_o  (rd_req_addr),
     .rd_valid_o (rd_req_valid)
@@ -181,25 +212,24 @@ module axil_interconnect
     .wr_valid_i (sel_rvalid),
     .wr_data_i  ({sel_rdata, sel_rresp}),
     .wr_ready_o (sel_rready),
-    .rd_ready_i (s_axil_rready),
-    .rd_data_o  ({s_axil_rdata, s_axil_rresp}),
-    .rd_valid_o (s_axil_rvalid)
+    .rd_ready_i (s_axil.rready),
+    .rd_data_o  ({s_axil.rdata, s_axil.rresp}),
+    .rd_valid_o (s_axil.rvalid)
   );
 
   always_comb begin
     for (int i = 0; i < NumS; i ++) begin
       m_axil_awvalid[i] = 1'b0;
       m_axil_awaddr[i]  = '0;
+      m_axil_awprot[i]  = '0;
       m_axil_wvalid[i]  = 1'b0;
       m_axil_wdata[i]   = '0;
       m_axil_wstrb[i]   = '0;
       m_axil_bready[i]  = 1'b0;
       m_axil_arvalid[i] = 1'b0;
       m_axil_araddr[i]  = '0;
+      m_axil_arprot[i]  = '0;
       m_axil_rready[i]  = 1'b0;
-
-      m_axil_awprot[i] = '0;
-      m_axil_arprot[i] = '0;
 
       if (wr_can_req && aw_req_valid && w_req_valid && wr_req_id == IdWidth'(i)) begin
         m_axil_awvalid[i] = 1'b1;
@@ -220,4 +250,7 @@ module axil_interconnect
       end
     end
   end
+
+  axil_prot_t __unused_prot [0:1];
+  assign __unused_prot = {s_axil.awprot, s_axil.arprot};
 endmodule

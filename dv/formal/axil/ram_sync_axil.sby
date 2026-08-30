@@ -17,7 +17,7 @@ smtbmc boolector
 [script]
 verilog_defines -D RSICV_FORMAL
 read -sv -formal sv2v.v
-prep -top ram_sync_axil
+prep -top ram_sync_axil_harness
 
 [files]
 build/sv2v.v
