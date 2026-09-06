@@ -30,8 +30,8 @@ module addr_decode
     for (int i = 0; i < NumS; i ++) begin
       if (addr_i >= MemMap[i].lower && addr_i <= MemMap[i].upper)  begin
         request_id_o = IdWidth'(i);
+        decerr_o = 1'b0;
       end
-      decerr_o = 1'b0;
     end
   end
 endmodule

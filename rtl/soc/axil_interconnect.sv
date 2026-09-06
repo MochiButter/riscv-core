@@ -70,7 +70,7 @@ module axil_interconnect
   axil_resp_e sel_bresp;
   logic aw_req_valid, w_req_valid, wr_req_ready,
     wr_can_req, wr_is_requesting, sel_bvalid, sel_bready,
-    wr_req_ack, wr_resp_ack;
+    wr_req_ack, wr_resp_ack, awaddr_decerr, wr_resp_decerr;
 
   assign wr_req_ready = wr_can_req &&
     m_axil_awready[wr_req_id] && m_axil_wready[wr_req_id];
@@ -81,8 +81,8 @@ module axil_interconnect
     sel_bresp = axil_pkg::OKAY;
     sel_bvalid = 1'b0;
     if (wr_is_requesting) begin
-      sel_bresp = m_axil_bresp[wr_resp_id];
-      sel_bvalid = m_axil_bvalid[wr_resp_id];
+      sel_bresp = wr_resp_decerr ? axil_pkg::DECERR : m_axil_bresp[wr_resp_id];
+      sel_bvalid = wr_resp_decerr ? 1'b1 : m_axil_bvalid[wr_resp_id];
     end
   end
 
@@ -117,20 +117,20 @@ module axil_interconnect
     .NumS     (NumS)
   ) wr_addr_dec (
     .addr_i       (wr_req_addr),
-    .decerr_o     (),
+    .decerr_o     (awaddr_decerr),
     .request_id_o (wr_req_id)
   );
 
   pipeline_reg #(
-    .Width(IdWidth)
+    .Width(IdWidth + $bits(wr_resp_decerr))
   ) wr_req_buf (
     .clk_i      (clk_i),
     .rst_ni     (rst_ni),
     .wr_valid_i (wr_req_ack),
-    .wr_data_i  (wr_req_id),
+    .wr_data_i  ({wr_req_id, awaddr_decerr}),
     .wr_ready_o (wr_can_req),
     .rd_ready_i (wr_resp_ack),
-    .rd_data_o  (wr_resp_id),
+    .rd_data_o  ({wr_resp_id, wr_resp_decerr}),
     .rd_valid_o (wr_is_requesting)
   );
 
@@ -152,7 +152,8 @@ module axil_interconnect
   logic [IdWidth - 1:0] rd_req_id, rd_resp_id;
   axil_resp_e sel_rresp;
   logic rd_req_ready, rd_req_valid, rd_can_req, rd_is_requesting,
-    sel_rvalid, sel_rready, rd_req_ack, rd_resp_ack;
+    sel_rvalid, sel_rready, rd_req_ack, rd_resp_ack,
+    araddr_decerr, rd_resp_decerr;
 
   assign rd_req_ready = rd_can_req && m_axil_arready[rd_req_id];
   assign rd_req_ack = rd_req_ready && rd_req_valid;
@@ -164,8 +165,8 @@ module axil_interconnect
     sel_rvalid = 1'b0;
     if (rd_is_requesting) begin
       sel_rdata = m_axil_rdata[rd_resp_id];
-      sel_rresp = m_axil_rresp[rd_resp_id];
-      sel_rvalid = m_axil_rvalid[rd_resp_id];
+      sel_rresp = rd_resp_decerr ? axil_pkg::DECERR : m_axil_rresp[rd_resp_id];
+      sel_rvalid = rd_resp_decerr ? 1'b1 : m_axil_rvalid[rd_resp_id];
     end
   end
 
@@ -187,20 +188,20 @@ module axil_interconnect
     .NumS     (NumS)
   ) rd_addr_dec (
     .addr_i       (rd_req_addr),
-    .decerr_o     (),
+    .decerr_o     (araddr_decerr),
     .request_id_o (rd_req_id)
   );
 
   pipeline_reg #(
-    .Width(IdWidth)
+    .Width(IdWidth + $bits(rd_resp_decerr))
   ) rd_req_buf (
     .clk_i      (clk_i),
     .rst_ni     (rst_ni),
     .wr_valid_i (rd_req_ack),
-    .wr_data_i  (rd_req_id),
+    .wr_data_i  ({rd_req_id, araddr_decerr}),
     .wr_ready_o (rd_can_req),
     .rd_ready_i (rd_resp_ack),
-    .rd_data_o  (rd_resp_id),
+    .rd_data_o  ({rd_resp_id, rd_resp_decerr}),
     .rd_valid_o (rd_is_requesting)
   );
 
@@ -231,21 +232,21 @@ module axil_interconnect
       m_axil_arprot[i]  = '0;
       m_axil_rready[i]  = 1'b0;
 
-      if (wr_can_req && aw_req_valid && w_req_valid && wr_req_id == IdWidth'(i)) begin
+      if (!awaddr_decerr && wr_can_req && aw_req_valid && w_req_valid && wr_req_id == IdWidth'(i)) begin
         m_axil_awvalid[i] = 1'b1;
         m_axil_awaddr[i]  = wr_req_addr;
         m_axil_wvalid[i]  = 1'b1;
         m_axil_wdata[i]   = wr_req_data;
         m_axil_wstrb[i]   = wr_req_strb;
       end
-      if (wr_is_requesting && sel_bvalid && wr_resp_id == IdWidth'(i)) begin
+      if (!wr_resp_decerr && wr_is_requesting && sel_bvalid && wr_resp_id == IdWidth'(i)) begin
         m_axil_bready[i] = 1'b1;
       end
-      if (rd_can_req && rd_req_valid && rd_req_id == IdWidth'(i)) begin
+      if (!araddr_decerr && rd_can_req && rd_req_valid && rd_req_id == IdWidth'(i)) begin
         m_axil_arvalid[i] = 1'b1;
         m_axil_araddr[i]  = rd_req_addr;
       end
-      if (rd_is_requesting && sel_rvalid && rd_resp_id == IdWidth'(i)) begin
+      if (!rd_resp_decerr && rd_is_requesting && sel_rvalid && rd_resp_id == IdWidth'(i)) begin
         m_axil_rready[i] = 1'b1;
       end
     end

@@ -174,11 +174,8 @@ async def test_misalign(dut):
 
 @cocotb.test()
 async def test_fencei(dut):
-    await run_program(dut, "fencei", 50)
-    # unlike the cocotb test, writing to the rom will not work
-    # ideally this test will also test the SLVERR, but the core's memory
-    # interface doesn't have that signal right now
-    # assert dut.u_core.reg_inst.regs_q[1].get() == 0x42
+    await run_program(dut, "fencei_soc", 50)
+    assert get_reg(dut, 1)  == 2
 
 @cocotb.test()
 async def test_aclint(dut):
@@ -191,6 +188,17 @@ async def test_aclint(dut):
     assert get_reg(dut, 30) == 0
     assert get_reg(dut, 31) == 0xff
 
+# @cocotb.test()
+# async def test_freertos(dut):
+#     await run_program(dut, "freertos", 0xfffff)
+
 @cocotb.test()
-async def test_freertos(dut):
-    await run_program(dut, "freertos", 0xfffff)
+async def test_decerr(dut):
+    await run_program(dut, "decerr", 120)
+    assert get_reg(dut, 1) == 2
+    assert get_reg(dut, 10) == 0x80100000
+    assert get_reg(dut, 11) == 0x1
+    assert get_reg(dut, 12) == 0x80100000
+    assert get_reg(dut, 13) == 0x5
+    assert get_reg(dut, 14) == 0x80100000
+    assert get_reg(dut, 15) == 0x7

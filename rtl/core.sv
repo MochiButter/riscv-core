@@ -11,6 +11,7 @@ module core
   ,output logic [Xlen - 1:0]       instmem_addr_o
   ,output logic [Xlen - 1:0]       instmem_wdata_o
   ,output logic [MaskBits - 1:0]   instmem_wmask_o
+  ,input  mem_resp_e               instmem_resp_i
   ,input  logic [Xlen - 1:0]       instmem_rdata_i
   ,input  logic                    instmem_rvalid_i
 
@@ -19,6 +20,7 @@ module core
   ,output logic [Xlen - 1:0]       datamem_addr_o
   ,output logic [Xlen - 1:0]       datamem_wdata_o
   ,output logic [MaskBits - 1:0]   datamem_wmask_o
+  ,input  mem_resp_e               datamem_resp_i
   ,input  logic [Xlen - 1:0]       datamem_rdata_i
   ,input  logic                    datamem_rvalid_i
 
@@ -63,6 +65,7 @@ module core
   /* Instruction fetch signals */
   logic [Xlen - 1:0] ifs_inst_pc;
   logic [Ilen - 1:0] ifs_inst_data;
+  logic ifs_inst_fault;
   assign instmem_wmask_o = '0;
   assign instmem_wdata_o = 'x;
 
@@ -101,12 +104,14 @@ module core
     .mem_ready_i      (instmem_ready_i),
     .mem_valid_o      (instmem_valid_o),
     .mem_addr_o       (instmem_addr_o),
+    .mem_resp_i       (instmem_resp_i),
     .mem_rdata_i      (instmem_rdata_i),
     .mem_rvalid_i     (instmem_rvalid_i),
     .inst_ready_i     (idex_wr_ready),
     .inst_pc_o        (ifs_inst_pc),
     .inst_data_o      (ifs_inst_data),
-    .inst_valid_o     (idex_wr_valid)
+    .inst_valid_o     (idex_wr_valid),
+    .inst_fault_o     (ifs_inst_fault)
   );
 
   /* ===== [IF -> ID] ===== */
@@ -115,6 +120,7 @@ module core
   decode #() decode_inst (
     .inst_i        (ifs_inst_data),
     .pc_i          (ifs_inst_pc),
+    .fault_i       (ifs_inst_fault),
     .imm_o         (idex_d.inst_imm),
     .inst_type_o   (idex_d.inst_type),
     .jump_type_o   (idex_d.jump_type),
@@ -286,6 +292,9 @@ module core
   assign mems_pc_target = mems_csr_raise_trap ? mems_csr_trap_vector : mems_jump_target;
   assign mems_inst_misalign = mems_jump && mems_jump_target[1:0] != 2'b00;
 
+  /* LSU access fault */
+  logic mems_lsu_fault;
+
   /* LSU misaligned access */
   logic [2:0] mems_lsu_bits_dword;
   logic [1:0] mems_lsu_bits_word;
@@ -321,11 +330,18 @@ module core
     mems_expt_valid = exmem_expt_valid;
     mems_expt_cause = exmem_expt_cause;
     mems_expt_value = exmem_expt_value;
+
+    // See pg. 50 of the privileged ISA document ver. 20251003 for the
+    // mcause priority order
     if (!exmem_rd_valid || !exmem_expt_valid) begin
       if (mems_inst_misalign) begin
         mems_expt_valid = 1'b1;
         mems_expt_cause = InstAddrMisaligned;
         mems_expt_value = mems_jump_target;
+      end else if (mems_lsu_fault) begin
+        mems_expt_valid = 1'b1;
+        mems_expt_cause = (mems_mem_type == MemLoad) ? LdAccessFault : StAccessFault;
+        mems_expt_value = mems_alu_res;
       end else if (mems_lsu_misalign && mems_mem_type != MemNone) begin
         mems_expt_valid = 1'b1;
         mems_expt_cause = (mems_mem_type == MemLoad) ? LdAddrMisaligned : StAddrMisaligned;
@@ -367,12 +383,14 @@ module core
     .funct3_i     (exmem_q.funct3),
     .rdata_o      (mems_load_data),
     .mem_busy_o   (mems_busy),
+    .mem_expt_o   (mems_lsu_fault),
 
     .mem_ready_i  (datamem_ready_i),
     .mem_valid_o  (datamem_valid_o),
     .mem_addr_o   (datamem_addr_o),
     .mem_wdata_o  (datamem_wdata_o),
     .mem_wmask_o  (datamem_wmask_o),
+    .mem_resp_i   (datamem_resp_i),
     .mem_rdata_i  (datamem_rdata_i),
     .mem_rvalid_i (datamem_rvalid_i)
   );

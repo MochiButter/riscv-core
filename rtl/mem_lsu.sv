@@ -9,12 +9,14 @@ module mem_lsu import core_pkg::*;
   ,input  logic [2:0] funct3_i
   ,output logic [Xlen - 1:0] rdata_o
   ,output logic mem_busy_o
+  ,output logic mem_expt_o
 
   ,input  logic mem_ready_i
   ,output logic mem_valid_o
   ,output logic [Xlen - 1:0] mem_addr_o
   ,output logic [Xlen - 1:0] mem_wdata_o
   ,output logic [MaskBits - 1:0] mem_wmask_o
+  ,input  mem_resp_e mem_resp_i
   ,input  logic [Xlen - 1:0] mem_rdata_i
   ,input  logic mem_rvalid_i
   );
@@ -104,6 +106,7 @@ module mem_lsu import core_pkg::*;
     state_d = state_q;
 
     mem_busy_o = 1'b0;
+    mem_expt_o = 1'b0;
     req_ff_en = 1'b0;
 
     case (state_q)
@@ -122,6 +125,7 @@ module mem_lsu import core_pkg::*;
       end
       WaitForValid: begin
         if (mem_rvalid_i) begin
+          mem_expt_o = (mem_resp_i == DECERR || mem_resp_i == SLVERR);
           state_d = Idle;
         end else begin
           mem_busy_o = 1'b1;

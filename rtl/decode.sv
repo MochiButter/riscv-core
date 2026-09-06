@@ -3,6 +3,8 @@ module decode
   import csr_pkg::*;
   (input  logic [Ilen - 1:0] inst_i
   ,input  logic [Xlen - 1:0] pc_i
+  ,input  logic fault_i
+
   ,output logic [Xlen - 1:0] imm_o
   ,output inst_type_e        inst_type_o
   ,output jump_type_e        jump_type_o
@@ -286,7 +288,11 @@ module decode
       default: illegal_inst = 1'b1;
     endcase
 
-    if (illegal_inst) begin
+    if (fault_i) begin
+      expt_valid_o = 1'b1;
+      expt_cause_o = InstAccessFault;
+      expt_value_o = pc_i;
+    end else if (illegal_inst) begin
       expt_valid_o = 1'b1;
       expt_cause_o = IllegalInst;
       expt_value_o = {{Xlen - Ilen{1'b0}}, inst_i};;

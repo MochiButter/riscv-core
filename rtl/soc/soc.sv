@@ -10,14 +10,17 @@ module soc
   localparam MaskBits = BusWidth / 8;
 
   logic [BusWidth - 1:0] i_addr, i_rdata;
+  axil_resp_e i_resp;
   logic i_ready, i_valid, i_rvalid;
 
   logic [BusWidth - 1:0] d_addr, d_wdata, d_rdata;
   logic [MaskBits - 1:0] d_wmask;
+  axil_resp_e d_resp;
   logic d_ready, d_valid, d_rvalid;
 
   logic [BusWidth - 1:0] bus_addr, bus_wdata, bus_rdata;
   logic [MaskBits - 1:0] bus_wmask;
+  axil_resp_e bus_resp;
   logic bus_ready, bus_valid, bus_rvalid;
 
   logic [63:0] mtime;
@@ -66,6 +69,7 @@ module soc
     .instmem_addr_o  (i_addr),
     .instmem_wdata_o (),
     .instmem_wmask_o (),
+    .instmem_resp_i  (i_resp),
     .instmem_rdata_i (i_rdata),
     .instmem_rvalid_i(i_rvalid),
     .datamem_ready_i (d_ready),
@@ -73,6 +77,7 @@ module soc
     .datamem_addr_o  (d_addr),
     .datamem_wdata_o (d_wdata),
     .datamem_wmask_o (d_wmask),
+    .datamem_resp_i  (d_resp),
     .datamem_rdata_i (d_rdata),
     .datamem_rvalid_i(d_rvalid),
     .msip_i          (msip),
@@ -112,6 +117,7 @@ module soc
     .i_ready_o    (i_ready),
     .i_valid_i    (i_valid),
     .i_addr_i     (i_addr),
+    .i_resp_o     (i_resp),
     .i_rdata_o    (i_rdata),
     .i_rvalid_o   (i_rvalid),
 
@@ -120,6 +126,7 @@ module soc
     .d_addr_i     (d_addr),
     .d_wdata_i    (d_wdata),
     .d_wmask_i    (d_wmask),
+    .d_resp_o     (d_resp),
     .d_rdata_o    (d_rdata),
     .d_rvalid_o   (d_rvalid),
 
@@ -128,6 +135,7 @@ module soc
     .bus_addr_o   (bus_addr),
     .bus_wdata_o  (bus_wdata),
     .bus_wmask_o  (bus_wmask),
+    .bus_resp_i   (bus_resp),
     .bus_rdata_i  (bus_rdata),
     .bus_rvalid_i (bus_rvalid)
   );
@@ -142,6 +150,7 @@ module soc
     .mem_addr_i   (bus_addr),
     .mem_wdata_i  (bus_wdata),
     .mem_wmask_i  (bus_wmask),
+    .mem_resp_o   (bus_resp),
     .mem_rdata_o  (bus_rdata),
     .mem_rvalid_o (bus_rvalid),
     .m_axil       (core_axil_if)

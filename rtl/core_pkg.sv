@@ -38,4 +38,14 @@ package core_pkg;
   typedef enum logic [2:0] {
     WbNone, WbAlu, WbLsu, WbCsr, WbLui, WbJmp
   } reg_wb_src_e;
+
+  // an exact copy of the axi response signal
+  // a copy is made here to separate the axi interface from the core
+  // memory interface as they are separate interfaces
+  typedef enum logic [1:0] {
+    OKAY   = 2'b00,
+    EXOKAY = 2'b01,
+    SLVERR = 2'b10,
+    DECERR = 2'b11
+  } mem_resp_e;
 endpackage

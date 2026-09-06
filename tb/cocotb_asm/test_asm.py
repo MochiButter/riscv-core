@@ -16,12 +16,15 @@ class Mem():
     mem = None
     maxint = 0
     addr_shamt = 2
+    mem_size = 2048
+    max_addr = 0
 
     def __init__(self, datawidth, path=None):
-        self.mem = [0] * 2048
+        self.mem = [0] * self.mem_size
         self.bytes_per_word = int(datawidth / 8)
         self.addr_shamt = int(math.log2(self.bytes_per_word))
         self.maxint = (1 << datawidth) - 1
+        self.max_addr = self.mem_size * self.bytes_per_word
         if not path:
             return
         program = open(path, "rb")
@@ -74,7 +77,12 @@ class Mem():
                 dut.instmem_ready_i.value = 0;
                 # for i in range(random.randint(0,2)):
                 #     await dut.clk_i.rising_edge
-                dut.instmem_rdata_i.value = self.read_word(req_addr)
+                if req_addr > self.max_addr:
+                    dut.instmem_rdata_i.value = 0xdeadbeef
+                    dut.instmem_resp_i.value = 3
+                else:
+                    dut.instmem_rdata_i.value = self.read_word(req_addr)
+                    dut.instmem_resp_i.value = 0
                 dut.instmem_rvalid_i.value = 1
             else:
                 dut.instmem_rvalid_i.value = 0
@@ -94,14 +102,19 @@ class Mem():
                         if mask_bit:
                             data_byte = (data >> (i * 8)) & (0xff if mask_bit else 0x00)
                             tmp_buf += chr(data_byte)
+                    dut.datamem_resp_i.value = 0
                     logger.info(f"core says: {tmp_buf}")
                     logger.info(f"Wrote [0x{req_addr:016x}] 0b{mask:08b} 0x{data:016x}")
+                elif req_addr > self.max_addr:
+                    dut.datamem_rdata_i.value = 0xdeadbeef
+                    dut.datamem_resp_i.value = 3
                 else:
                     dut.datamem_rdata_i.value = self.read_word(req_addr)
                     if dut.datamem_wmask_o.value != 0:
                         wdata = int(dut.datamem_wdata_o.value)
                         mask = int(dut.datamem_wmask_o.value)
                         self.write_word(req_addr, wdata, mask)
+                    dut.datamem_resp_i.value = 0
                 dut.datamem_rvalid_i.value = 1
             else:
                 dut.datamem_rvalid_i.value = 0
@@ -134,7 +147,10 @@ async def run_program(dut, filepath, check_mem=None):
             #inst = int(dut.inst_data.value)
             ebreak = dut.test_mems_ebreak.value
             #logger.info(f"[0x{pc:016x}] 0x{inst:08x}")
-            instruction = instmem.mem[pc >> 3] & 0xffffffff if pc % 8 == 0 else instmem.mem[pc >> 3] >> 32
+            if pc < instmem.max_addr:
+                instruction = instmem.mem[pc >> 3] & 0xffffffff if pc % 8 == 0 else instmem.mem[pc >> 3] >> 32
+            else:
+                instruction = 0
             logger.info(f"[0x{pc:016x}] 0x{instruction:08x}")
         await dut.clk_i.rising_edge
         count += 1
@@ -294,3 +310,14 @@ async def test_c(dut):
     def check_mem(mem):
         assert mem[64] == 0x42
     await run_program(dut, "test.bin", check_mem)
+
+@cocotb.test()
+async def test_decerr(dut):
+    await run_program(dut, "decerr.bin")
+    assert dut.reg_inst.regs_q[1].get() == 0x2
+    assert dut.reg_inst.regs_q[10].get() == 0x80100000
+    assert dut.reg_inst.regs_q[11].get() == 0x1
+    assert dut.reg_inst.regs_q[12].get() == 0x80100000
+    assert dut.reg_inst.regs_q[13].get() == 0x5
+    assert dut.reg_inst.regs_q[14].get() == 0x80100000
+    assert dut.reg_inst.regs_q[15].get() == 0x7

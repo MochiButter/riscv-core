@@ -45,7 +45,7 @@ VERILOG_SOURCES += $(ROOT_DIR)/rtl/soc/soc.sv
 COCOTB_TOPLEVEL := soc
 COCOTB_TEST_MODULES := test_soc
 
-TEST_FILES := load store loop misalign fencei aclint
+TEST_FILES := load store loop misalign fencei_soc aclint decerr
 CUSTOM_SIM_DEPS := $(foreach test,$(TEST_FILES),sim_build/$(test)_rom.bin)
 CUSTOM_SIM_DEPS += sim_build/freertos_rom.bin
 

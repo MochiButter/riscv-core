@@ -1,4 +1,5 @@
 module arbiter
+  import axil_pkg::*;
   #(parameter BusWidth = 64
   ,localparam MaskBits = BusWidth / 8)
   (input  logic clk_i
@@ -7,6 +8,7 @@ module arbiter
   ,output logic                  i_ready_o
   ,input  logic                  i_valid_i
   ,input  logic [BusWidth - 1:0] i_addr_i
+  ,output axil_resp_e            i_resp_o
   ,output logic [BusWidth - 1:0] i_rdata_o
   ,output logic                  i_rvalid_o
 
@@ -15,6 +17,7 @@ module arbiter
   ,input  logic [BusWidth - 1:0] d_addr_i
   ,input  logic [BusWidth - 1:0] d_wdata_i
   ,input  logic [MaskBits - 1:0] d_wmask_i
+  ,output axil_resp_e            d_resp_o
   ,output logic [BusWidth - 1:0] d_rdata_o
   ,output logic                  d_rvalid_o
 
@@ -23,6 +26,7 @@ module arbiter
   ,output logic [BusWidth - 1:0] bus_addr_o
   ,output logic [BusWidth - 1:0] bus_wdata_o
   ,output logic [MaskBits - 1:0] bus_wmask_o
+  ,input  axil_resp_e            bus_resp_i
   ,input  logic [BusWidth - 1:0] bus_rdata_i
   ,input  logic                  bus_rvalid_i
   );
@@ -38,10 +42,12 @@ module arbiter
     i_ready_o = bus_ready_i && ((can_request && i_valid_i && !d_valid_i));
     i_rvalid_o = res_is_valid && res_is_inst_q;
     i_rdata_o = bus_rdata_i;
+    i_resp_o = bus_resp_i;
 
     d_ready_o = bus_ready_i && ((can_request && d_valid_i));
     d_rvalid_o = res_is_valid && !res_is_inst_q;
     d_rdata_o = bus_rdata_i;
+    d_resp_o = bus_resp_i;
 
     if (can_request && d_valid_i) begin
       bus_addr_o  = d_addr_i;

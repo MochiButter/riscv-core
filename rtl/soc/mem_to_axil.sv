@@ -10,6 +10,7 @@ module mem_to_axil
   ,input  logic [BusWidth - 1:0] mem_addr_i
   ,input  logic [BusWidth - 1:0] mem_wdata_i
   ,input  logic [MaskBits - 1:0] mem_wmask_i
+  ,output axil_resp_e            mem_resp_o
   ,output logic [BusWidth - 1:0] mem_rdata_o
   ,output logic                  mem_rvalid_o
 
@@ -103,6 +104,7 @@ module mem_to_axil
   assign m_axil.arprot  = '0;
 
   assign mem_rdata_o = m_axil.rdata;
+  assign mem_resp_o = m_axil.bready ? m_axil.bresp : m_axil.rresp;
   assign mem_rvalid_o = (m_axil.bready && m_axil.bvalid) ||
     (m_axil.rready && m_axil.rvalid);
 
